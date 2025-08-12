@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Base Scraper Implementation
-Abstract base class for all website scrapers
+Abstract base class for all website scrapers with proxy integration
 """
 
 from abc import ABC, abstractmethod
@@ -13,30 +13,94 @@ from urllib.robotparser import RobotFileParser
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 import asyncio
+import os
+import sys
+
+# Add proxy module to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from proxy.proxy_manager import ProxyRotator, ProxySession, create_webshare_proxy_rotator
 
 logger = logging.getLogger(__name__)
 
 
 class BaseScraper(ABC):
-    """Abstract base class for website scrapers"""
+    """Abstract base class for website scrapers with proxy support"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.session = requests.Session()
-        self.setup_session()
         self.rate_limit_delay = config.get('delay', 1)
         self.max_retries = config.get('max_retries', 3)
         
+        # Initialize proxy system
+        self.proxy_session = None
+        if config.get('proxies'):
+            try:
+                proxy_rotator = create_webshare_proxy_rotator(
+                    config['proxies']
+                )
+                self.proxy_session = ProxySession(
+                    proxy_rotator, 
+                    max_retries=self.max_retries
+                )
+                logger.info(f"Initialized with {len(config['proxies'])} proxies")
+            except Exception as e:
+                logger.error(f"Failed to initialize proxies: {e}")
+                self.proxy_session = None
+        
+        # Fallback to regular session if no proxies
+        if not self.proxy_session:
+            self.session = requests.Session()
+            self.setup_session()
+    
     def setup_session(self):
         """Setup HTTP session with proper headers"""
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-        })
+        if hasattr(self, 'session'):
+            self.session.headers.update({
+                'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                             'AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/120.0.0.0 Safari/537.36'),
+                'Accept': ('text/html,application/xhtml+xml,application/xml;'
+                          'q=0.9,image/webp,*/*;q=0.8'),
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            })
+    
+    def safe_request(self, url: str, **kwargs) -> Optional[requests.Response]:
+        """Make a safe HTTP request with proxy rotation if available"""
+        try:
+            if self.proxy_session:
+                # Use proxy session with automatic rotation
+                response = self.proxy_session.get(url, **kwargs)
+                if response:
+                    return response
+                else:
+                    logger.warning("Proxy request failed, falling back to direct")
+            
+            # Fallback to direct request
+            if hasattr(self, 'session'):
+                for attempt in range(self.max_retries):
+                    try:
+                        response = self.session.get(url, timeout=30, **kwargs)
+                        response.raise_for_status()
+                        return response
+                    except requests.exceptions.RequestException as e:
+                        logger.warning(f"Direct request failed (attempt {attempt + 1}): {e}")
+                        if attempt < self.max_retries - 1:
+                            time.sleep(2 ** attempt)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Request error for {url}: {e}")
+            return None
+    
+    def get_proxy_stats(self) -> Optional[Dict[str, Any]]:
+        """Get proxy statistics if using proxies"""
+        if self.proxy_session and hasattr(self.proxy_session, 'proxy_rotator'):
+            return self.proxy_session.proxy_rotator.get_proxy_stats()
+        return None
         
     def check_robots_txt(self, url: str) -> bool:
         """Check if URL is allowed by robots.txt"""
@@ -59,22 +123,8 @@ class BaseScraper(ABC):
         """Implement rate limiting"""
         time.sleep(self.rate_limit_delay)
     
-    def safe_request(self, url: str, **kwargs) -> Optional[requests.Response]:
-        """Make a safe HTTP request with retries"""
-        for attempt in range(self.max_retries):
-            try:
-                response = self.session.get(url, timeout=30, **kwargs)
-                response.raise_for_status()
-                return response
-                
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Request failed (attempt {attempt + 1}): {e}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    
-        return None
-    
-    def extract_images_from_soup(self, soup: BeautifulSoup, base_url: str) -> List[Dict[str, Any]]:
+    def extract_images_from_soup(self, soup: BeautifulSoup, 
+                                base_url: str) -> List[Dict[str, Any]]:
         """Extract image URLs from BeautifulSoup object"""
         images = []
         
@@ -82,7 +132,8 @@ class BaseScraper(ABC):
         img_tags = soup.find_all('img')
         
         for img in img_tags:
-            src = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
+            src = (img.get('src') or img.get('data-src') or 
+                   img.get('data-lazy-src'))
             if not src:
                 continue
                 

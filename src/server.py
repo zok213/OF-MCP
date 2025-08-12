@@ -58,7 +58,15 @@ class WebScraperMCPServer:
         """Create generic scraper instance"""
         try:
             from scrapers.base_scraper import GenericScraper
-            return GenericScraper(self.config.get('scrapers', {}).get('generic', {}))
+            scraper_config = self.config.get('scrapers', {}).get('generic', {})
+            
+            # Add proxy configuration if available
+            proxy_config = self.config.get('proxy_config', {})
+            if proxy_config.get('webshare_proxies'):
+                scraper_config['proxies'] = proxy_config['webshare_proxies']
+                logger.info(f"GenericScraper initialized with {len(proxy_config['webshare_proxies'])} proxies")
+            
+            return GenericScraper(scraper_config)
         except ImportError:
             logger.warning("Could not import GenericScraper")
             return None
@@ -68,7 +76,14 @@ class WebScraperMCPServer:
         try:
             from scrapers.base_scraper import PornPicsScraper
             pornpics_config = self.config.get('scrapers', {}).get('pornpics', {})
+            
             if pornpics_config.get('enabled', False):
+                # Add proxy configuration if available  
+                proxy_config = self.config.get('proxy_config', {})
+                if proxy_config.get('webshare_proxies'):
+                    pornpics_config['proxies'] = proxy_config['webshare_proxies']
+                    logger.info(f"PornPicsScraper initialized with {len(proxy_config['webshare_proxies'])} proxies")
+                
                 return PornPicsScraper(pornpics_config)
         except ImportError:
             logger.warning("Could not import PornPicsScraper")
@@ -237,6 +252,22 @@ class WebScraperMCPServer:
                         },
                         "required": ["topic", "jina_api_key"]
                     }
+                ),
+                
+                types.Tool(
+                    name="proxy_status",
+                    description="Check proxy health and rotation statistics",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "run_health_check": {
+                                "type": "boolean",
+                                "default": False,
+                                "description": "Run immediate proxy health check"
+                            }
+                        },
+                        "required": []
+                    }
                 )
             ]
         
@@ -257,6 +288,8 @@ class WebScraperMCPServer:
                 return await self.handle_list_categories(arguments or {})
             elif name == "intelligent_research":
                 return await self.handle_intelligent_research(arguments or {})
+            elif name == "proxy_status":
+                return await self.handle_proxy_status(arguments or {})
             else:
                 raise ValueError(f"Unknown tool: {name}")
     
@@ -708,6 +741,76 @@ class WebScraperMCPServer:
                      f"🔧 Make sure Jina AI integration is properly configured"
             )]
     
+    async def handle_proxy_status(self, arguments: Dict) -> List[types.TextContent]:
+        """Handle proxy status check request"""
+        try:
+            run_health_check = arguments.get('run_health_check', False)
+            
+            result_text = "🌐 Proxy System Status\n"
+            result_text += "=" * 30 + "\n\n"
+            
+            # Check if scrapers have proxy stats
+            proxy_stats_found = False
+            
+            for scraper_name, scraper in self.scrapers.items():
+                if scraper and hasattr(scraper, 'get_proxy_stats'):
+                    stats = scraper.get_proxy_stats()
+                    if stats:
+                        proxy_stats_found = True
+                        result_text += f"📊 {scraper_name.capitalize()} Scraper Proxies:\n"
+                        result_text += f"  • Total Proxies: {stats['total_proxies']}\n"
+                        result_text += f"  • Healthy: {stats['healthy_proxies']}\n"
+                        result_text += f"  • Unhealthy: {stats['unhealthy_proxies']}\n\n"
+                        
+                        # Show individual proxy stats
+                        result_text += f"🔍 Proxy Details:\n"
+                        for proxy in stats['proxies'][:5]:  # Show first 5
+                            health_status = "✅" if proxy['is_healthy'] else "❌"
+                            result_text += f"  {health_status} {proxy['ip']}:{proxy['port']}\n"
+                            result_text += f"     Success Rate: {proxy['success_rate']:.2%}\n"
+                            result_text += f"     Response Time: {proxy['response_time']:.2f}s\n"
+                            result_text += f"     Requests: {proxy['success_count']} ✅ / {proxy['failure_count']} ❌\n"
+                        
+                        if len(stats['proxies']) > 5:
+                            result_text += f"  ... and {len(stats['proxies']) - 5} more proxies\n"
+                        result_text += "\n"
+            
+            if not proxy_stats_found:
+                result_text += "❌ No proxy system found\n"
+                result_text += "💡 Proxies are not configured or scrapers not initialized\n"
+                
+                # Check configuration
+                proxy_config = self.config.get('proxy_config', {})
+                if proxy_config.get('webshare_proxies'):
+                    result_text += f"📋 Configuration found: {len(proxy_config['webshare_proxies'])} proxies configured\n"
+                    result_text += "🔧 Proxies should be initialized when scraping starts\n"
+                else:
+                    result_text += "⚠️ No proxy configuration found in config\n"
+                    result_text += "💡 Add proxy_config section to enable proxy rotation\n"
+            
+            if run_health_check and proxy_stats_found:
+                result_text += "🔄 Running proxy health check...\n"
+                result_text += "(Health checks run automatically in background)\n"
+            
+            # Show configuration if available
+            proxy_config = self.config.get('proxy_config', {})
+            if proxy_config:
+                result_text += "⚙️ Proxy Configuration:\n"
+                settings = proxy_config.get('settings', {})
+                result_text += f"  • Health Check Interval: {settings.get('health_check_interval', 300)}s\n"
+                result_text += f"  • Max Retries: {settings.get('max_retries', 3)}\n"
+                result_text += f"  • Request Timeout: {settings.get('request_timeout', 30)}s\n"
+                result_text += f"  • Rate Limit Delay: {settings.get('rate_limit_delay', 1)}s\n"
+            
+            return [types.TextContent(type="text", text=result_text)]
+            
+        except Exception as e:
+            logger.error(f"Error in proxy_status: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"❌ Error checking proxy status: {str(e)}"
+            )]
+    
     async def check_website_compliance(self, url: str) -> Dict[str, Any]:
         """Check website legal compliance"""
         try:
@@ -789,6 +892,7 @@ async def main():
     """Main server entry point"""
     # Load configuration
     config_path = Path(__file__).parent / "config" / "mcp_config.json"
+    proxy_config_path = Path(__file__).parent / "config" / "proxy_config.json"
     
     try:
         with open(config_path, 'r') as f:
@@ -811,6 +915,16 @@ async def main():
                 "user_agent": "MCP-WebScraper/1.0"
             }
         }
+    
+    # Load proxy configuration if available
+    try:
+        with open(proxy_config_path, 'r') as f:
+            proxy_config = json.load(f)
+            config.update(proxy_config)
+            logger.info(f"Loaded proxy configuration with {len(proxy_config.get('proxy_config', {}).get('webshare_proxies', []))} proxies")
+    except FileNotFoundError:
+        logger.warning(f"Proxy configuration file not found: {proxy_config_path}")
+        logger.info("Proxy functionality will not be available")
     
     # Create and run server
     server_instance = WebScraperMCPServer(config)

@@ -256,6 +256,12 @@ deployment/secrets/
 k8s/secrets/
 
 # =============================================================================
+# DEVELOPMENT & NON-PRODUCTION FILES
+# =============================================================================
+# Development folder (tests, setup scripts, extra docs)
+development/
+
+# =============================================================================
 # EXAMPLES & SAMPLES (Keep structure, exclude data)
 # =============================================================================
 examples/sample_data/
@@ -270,7 +276,6 @@ examples/*.png
 !.env.example
 !config/mcp_config.example.json
 !examples/production_ai_pipeline.py
-!tests/
 !docs/
 
 # Important documentation
@@ -282,3 +287,4 @@ examples/*.png
 !requirements*.txt
 !setup.py
 !pyproject.toml
+

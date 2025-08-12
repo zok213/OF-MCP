@@ -1,0 +1,15 @@
+# Professional Commit Message Template
+# 
+# Type: Brief summary (50 characters or less)
+# 
+# More detailed explanation (wrap at 72 characters)
+# - What: What changes were made
+# - Why: Why these changes were necessary  
+# - How: How the changes address the issue
+#
+# Types: feat, fix, docs, style, refactor, test, chore
+# Example: feat: Add Jina AI integration for intelligent URL discovery
+#
+# Footer (if applicable):
+# Fixes #123
+# Co-authored-by: Name <email@example.com>

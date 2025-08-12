@@ -1,0 +1,85 @@
+{
+  "storage": {
+    "base_path": "./data",
+    "raw_path": "./data/raw",
+    "processed_path": "./data/processed", 
+    "categorized_path": "./data/categorized",
+    "metadata_path": "./data/metadata",
+    "max_file_size": 10485760,
+    "allowed_formats": ["jpg", "jpeg", "png", "webp", "gif"],
+    "download_timeout": 30,
+    "max_concurrent_downloads": 5
+  },
+  
+  "face_detection": {
+    "face_threshold": 0.6,
+    "min_face_size": 50,
+    "max_faces_per_image": 10,
+    "detection_model": "hog",
+    "encoding_model": "large",
+    "similarity_threshold": 0.8
+  },
+  
+  "categorization": {
+    "auto_learn_faces": true,
+    "min_confidence": 0.8,
+    "enable_person_clustering": true,
+    "min_images_per_person": 3,
+    "quality_threshold": 0.7
+  },
+  
+  "legal": {
+    "require_robots_check": true,
+    "require_attribution": true,
+    "user_agent": "MCP-WebScraper/1.0 (Educational Purpose)",
+    "respect_rate_limits": true,
+    "log_compliance_checks": true
+  },
+  
+  "scrapers": {
+    "instagram": {
+      "enabled": false,
+      "delay": 5,
+      "max_posts": 20,
+      "public_only": true,
+      "use_api": true,
+      "api_key": "",
+      "note": "Instagram scraping requires API access - direct scraping violates ToS"
+    },
+    
+    "pornpics": {
+      "enabled": true,
+      "delay": 2,
+      "max_images": 100,
+      "max_pages": 5,
+      "respect_rate_limits": true,
+      "download_full_resolution": true
+    },
+    
+    "generic": {
+      "enabled": true,
+      "delay": 1,
+      "max_images": 50,
+      "follow_redirects": true,
+      "verify_ssl": true
+    }
+  },
+  
+  "quality_filters": {
+    "min_width": 256,
+    "min_height": 256,
+    "max_width": 4096,
+    "max_height": 4096,
+    "min_file_size": 10240,
+    "max_file_size": 10485760,
+    "blur_threshold": 100,
+    "brightness_range": [20, 250]
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "log_file": "./logs/mcp_scraper.log",
+    "max_log_size": "10MB",
+    "backup_count": 5
+  }
+}

@@ -1,0 +1,284 @@
+# AI-Driven MCP Web Scraper - Professional .gitignore
+# Created with reasoning and understanding for production deployment
+
+# =============================================================================
+# SECURITY & SENSITIVE DATA (CRITICAL - NEVER COMMIT)
+# =============================================================================
+# API Keys and Secrets
+*.key
+*.secret
+.env
+.env.local
+.env.production
+.env.staging
+config/*_secrets.json
+config/api_keys.json
+config/credentials.json
+
+# Jina AI API Keys
+jina_config.json
+*jina_key*
+*api_key*
+
+# MCP Configuration with secrets
+config/mcp_config_production.json
+config/mcp_config_local.json
+
+# =============================================================================
+# PYTHON ENVIRONMENT & DEPENDENCIES
+# =============================================================================
+# Virtual Environments
+venv/
+venv-*/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python Cache and Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# Pytest Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy Cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# =============================================================================
+# DATA & MEDIA FILES (LARGE FILES)
+# =============================================================================
+# Downloaded Images and Media
+data/raw/
+data/processed/
+data/categorized/
+data/metadata/
+data/research/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.mp4
+*.mov
+*.avi
+
+# Large datasets and archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+datasets/
+downloads/
+
+# =============================================================================
+# LOGS & TEMPORARY FILES
+# =============================================================================
+# Application Logs
+logs/
+*.log
+*.log.*
+log_*.txt
+
+# Temporary Files
+temp/
+tmp/
+.tmp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# IDE & EDITOR FILES
+# =============================================================================
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/.ropeproject
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# =============================================================================
+# DATABASE & STORAGE
+# =============================================================================
+# SQLite Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Database dumps and backups
+*.sql
+*.dump
+backup/
+backups/
+
+# =============================================================================
+# TESTING & DEBUGGING
+# =============================================================================
+# Test Results and Coverage
+.tox/
+.nox/
+coverage.xml
+*.cover
+.coverage.*
+.hypothesis/
+
+# Debugging
+.pdb
+*.pdb
+
+# =============================================================================
+# SYSTEM & PERFORMANCE
+# =============================================================================
+# Memory dumps and core files
+core
+*.core
+*.dump
+
+# Performance profiling
+*.prof
+
+# =============================================================================
+# WEB SCRAPING SPECIFIC
+# =============================================================================
+# Browser automation files
+.playwright/
+playwright-report/
+test-results/
+
+# Downloaded web pages cache
+scraped_pages/
+cache/
+.scrapy/
+
+# Selenium webdriver logs
+geckodriver.log
+chromedriver.log
+
+# =============================================================================
+# AI/ML MODEL FILES
+# =============================================================================
+# Large model files
+*.pkl
+*.pickle
+*.model
+models/
+face_encodings/
+training_data/
+
+# =============================================================================
+# DOCUMENTATION BUILD
+# =============================================================================
+# Sphinx documentation
+docs/_build/
+docs/build/
+site/
+
+# MkDocs
+site/
+
+# =============================================================================
+# PACKAGE MANAGEMENT
+# =============================================================================
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# Conda
+.conda/
+
+# =============================================================================
+# DEPLOYMENT & PRODUCTION
+# =============================================================================
+# Docker
+.dockerignore
+Dockerfile.local
+
+# Kubernetes
+*.local.yml
+*.local.yaml
+
+# Deployment secrets
+deployment/secrets/
+k8s/secrets/
+
+# =============================================================================
+# EXAMPLES & SAMPLES (Keep structure, exclude data)
+# =============================================================================
+examples/sample_data/
+examples/test_images/
+examples/*.jpg
+examples/*.png
+
+# =============================================================================
+# KEEP THESE IMPORTANT FILES (Explicitly not ignored)
+# =============================================================================
+# Configuration templates and examples
+!.env.example
+!config/mcp_config.example.json
+!examples/production_ai_pipeline.py
+!tests/
+!docs/
+
+# Important documentation
+!README*.md
+!*.md
+!LICENSE
+
+# Requirements and setup
+!requirements*.txt
+!setup.py
+!pyproject.toml

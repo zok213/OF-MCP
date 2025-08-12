@@ -1,0 +1,76 @@
+{
+  "storage": {
+    "base_path": "./data",
+    "raw_path": "./data/raw",
+    "processed_path": "./data/processed",
+    "categorized_path": "./data/categorized",
+    "metadata_path": "./data/metadata",
+    "research_path": "./data/research"
+  },
+  "jina_ai": {
+    "api_key": "YOUR_JINA_API_KEY_HERE",
+    "base_url": "https://eu-s-beta.jina.ai",
+    "max_keywords_per_topic": 10,
+    "urls_per_keyword": 15,
+    "enable_intelligent_filtering": true,
+    "timeout_seconds": 30
+  },
+  "scrapers": {
+    "generic": {
+      "enabled": true,
+      "max_concurrent": 5,
+      "delay_between_requests": 1.0,
+      "timeout": 30,
+      "retry_attempts": 3
+    },
+    "pornpics": {
+      "enabled": false,
+      "adult_content_disclaimer": "Enable only if you understand and comply with all legal requirements",
+      "age_verification_bypass": false,
+      "cookie_handling": true,
+      "lazy_loading_support": true
+    }
+  },
+  "face_detection": {
+    "enabled": true,
+    "face_threshold": 0.6,
+    "use_opencv": true,
+    "use_face_recognition": false,
+    "model_path": "./models/face_detection"
+  },
+  "categorization": {
+    "enabled": true,
+    "min_confidence": 0.8,
+    "auto_create_categories": true,
+    "max_faces_per_image": 10,
+    "enable_clustering": true
+  },
+  "quality_filters": {
+    "min_width": 800,
+    "min_height": 600,
+    "max_file_size_mb": 10,
+    "allowed_formats": ["jpg", "jpeg", "png", "webp"],
+    "min_quality_score": 0.7
+  },
+  "legal": {
+    "require_robots_check": true,
+    "user_agent": "MCP-WebScraper-Professional/1.0",
+    "respect_rate_limits": true,
+    "enable_tos_checking": true,
+    "adult_content_warning": "Always ensure compliance with local laws and website terms of service"
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "./logs/scraper.log",
+    "max_file_size_mb": 10,
+    "backup_count": 5,
+    "enable_statistics": true
+  },
+  "research_pipeline": {
+    "auto_generate_variations": true,
+    "semantic_expansion": true,
+    "context_aware_keywords": true,
+    "priority_based_filtering": true,
+    "max_research_time_minutes": 10
+  }
+}

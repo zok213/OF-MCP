@@ -2,7 +2,7 @@
   "storage": {
     "base_path": "./data",
     "raw_path": "./data/raw",
-    "processed_path": "./data/processed", 
+    "processed_path": "./data/processed",
     "categorized_path": "./data/categorized",
     "metadata_path": "./data/metadata",
     "max_file_size": 10485760,
@@ -10,7 +10,7 @@
     "download_timeout": 30,
     "max_concurrent_downloads": 5
   },
-  
+
   "face_detection": {
     "face_threshold": 0.6,
     "min_face_size": 50,
@@ -19,7 +19,7 @@
     "encoding_model": "large",
     "similarity_threshold": 0.8
   },
-  
+
   "categorization": {
     "auto_learn_faces": true,
     "min_confidence": 0.8,
@@ -27,7 +27,7 @@
     "min_images_per_person": 3,
     "quality_threshold": 0.7
   },
-  
+
   "legal": {
     "require_robots_check": true,
     "require_attribution": true,
@@ -35,7 +35,7 @@
     "respect_rate_limits": true,
     "log_compliance_checks": true
   },
-  
+
   "scrapers": {
     "instagram": {
       "enabled": false,
@@ -46,7 +46,7 @@
       "api_key": "",
       "note": "Instagram scraping requires API access - direct scraping violates ToS"
     },
-    
+
     "pornpics": {
       "enabled": true,
       "delay": 2,
@@ -55,7 +55,7 @@
       "respect_rate_limits": true,
       "download_full_resolution": true
     },
-    
+
     "generic": {
       "enabled": true,
       "delay": 1,
@@ -64,7 +64,7 @@
       "verify_ssl": true
     }
   },
-  
+
   "quality_filters": {
     "min_width": 256,
     "min_height": 256,
@@ -75,7 +75,7 @@
     "blur_threshold": 100,
     "brightness_range": [20, 250]
   },
-  
+
   "logging": {
     "level": "INFO",
     "log_file": "./logs/mcp_scraper.log",

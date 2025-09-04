@@ -81,5 +81,34 @@
     "log_file": "./logs/mcp_scraper.log",
     "max_log_size": "10MB",
     "backup_count": 5
+  },
+
+  "cloud_storage": {
+    "enabled": true,
+    "bucket_name": "ofbucket",
+    "region": "s3.ap-northeast-1.wasabisys.com",
+    "max_concurrent_uploads": 5,
+    "failure_threshold": 3,
+    "recovery_timeout": 60,
+    "max_connections": 50,
+    "max_workers": 10,
+    "max_retries": 3,
+    "retry_delay": 2.0
+  },
+
+  "database": {
+    "enabled": true,
+    "supabase_url": "https://xewniavplpocctogfgnc.supabase.co",
+    "max_retries": 3,
+    "failure_threshold": 3,
+    "recovery_timeout": 60,
+    "connection_pool_size": 10
+  },
+
+  "integration": {
+    "auto_sync_to_cloud": true,
+    "auto_record_sessions": true,
+    "backup_interval_hours": 24,
+    "enable_health_monitoring": true
   }
 }

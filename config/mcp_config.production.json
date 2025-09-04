@@ -1,0 +1,180 @@
+{
+  "production": {
+    "security_enabled": true,
+    "master_password_required": false,
+    "rate_limiting_enabled": true,
+    "health_monitoring_enabled": true,
+    "autonomous_scraping_enabled": true
+  },
+
+  "storage": {
+    "base_path": "./data",
+    "raw_path": "./data/raw",
+    "processed_path": "./data/processed",
+    "categorized_path": "./data/categorized",
+    "metadata_path": "./data/metadata",
+    "research_path": "./data/research",
+    "max_file_size": 10485760,
+    "allowed_formats": ["jpg", "jpeg", "png", "webp", "gif"],
+    "download_timeout": 30,
+    "max_concurrent_downloads": 5,
+    "auto_cleanup_days": 30
+  },
+
+  "security": {
+    "credential_encryption": true,
+    "api_key_validation": true,
+    "config_validation": true,
+    "audit_logging": true,
+    "max_login_attempts": 3,
+    "session_timeout_hours": 24
+  },
+
+  "resilience": {
+    "circuit_breaker_enabled": true,
+    "failure_threshold": 5,
+    "recovery_timeout_seconds": 60,
+    "retry_enabled": true,
+    "max_retries": 3,
+    "base_delay_seconds": 1.0,
+    "exponential_backoff": true,
+    "jitter_enabled": true
+  },
+
+  "autonomous": {
+    "session_persistence": true,
+    "auto_login": true,
+    "max_concurrent_sessions": 3,
+    "session_timeout_hours": 24.0,
+    "headless": false,
+    "browser_args": [
+      "--disable-blink-features=AutomationControlled",
+      "--disable-dev-shm-usage",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding"
+    ]
+  },
+
+  "face_detection": {
+    "enabled": true,
+    "face_threshold": 0.6,
+    "min_face_size": 50,
+    "max_faces_per_image": 10,
+    "detection_model": "hog",
+    "encoding_model": "large",
+    "similarity_threshold": 0.8,
+    "auto_learn_faces": true
+  },
+
+  "categorization": {
+    "enabled": true,
+    "min_confidence": 0.8,
+    "enable_person_clustering": true,
+    "min_images_per_person": 3,
+    "quality_threshold": 0.7,
+    "auto_create_categories": true,
+    "max_faces_per_image": 10
+  },
+
+  "scrapers": {
+    "generic": {
+      "enabled": true,
+      "delay": 2,
+      "max_images": 50,
+      "follow_redirects": true,
+      "verify_ssl": true,
+      "respect_robots_txt": true,
+      "user_agent": "MCP-WebScraper-Professional/1.0",
+      "timeout": 30,
+      "max_retries": 3
+    },
+
+    "pornpics": {
+      "enabled": true,
+      "delay": 3,
+      "max_images": 100,
+      "max_pages": 5,
+      "respect_rate_limits": true,
+      "download_full_resolution": true,
+      "bypass_age_verification": true,
+      "handle_cookie_banners": true
+    },
+
+    "playwright": {
+      "enabled": true,
+      "headless": false,
+      "viewport": {"width": 1920, "height": 1080},
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "wait_for_dynamic_content": true,
+      "scroll_for_lazy_load": true,
+      "max_concurrent_requests": 3,
+      "request_delay_ms": 2000
+    }
+  },
+
+  "quality_filters": {
+    "enabled": true,
+    "min_width": 800,
+    "min_height": 600,
+    "max_width": 4096,
+    "max_height": 4096,
+    "min_file_size": 10240,
+    "max_file_size": 10485760,
+    "blur_threshold": 100,
+    "brightness_range": [20, 250],
+    "skip_thumbnails": true,
+    "skip_previews": true
+  },
+
+  "jina_ai": {
+    "enabled": true,
+    "api_key_required": true,
+    "base_url": "https://eu-s-beta.jina.ai",
+    "max_keywords_per_topic": 10,
+    "urls_per_keyword": 15,
+    "enable_intelligent_filtering": true,
+    "timeout_seconds": 30,
+    "rate_limit_per_minute": 30
+  },
+
+  "legal": {
+    "require_robots_check": true,
+    "require_attribution": true,
+    "user_agent": "MCP-WebScraper-Professional/1.0 (Educational Purpose)",
+    "respect_rate_limits": true,
+    "log_compliance_checks": true,
+    "enable_tos_checking": true,
+    "adult_content_warning": "Always ensure compliance with local laws and website terms of service"
+  },
+
+  "logging": {
+    "level": "INFO",
+    "structured_logging": true,
+    "log_file": "./logs/mcp_scraper.log",
+    "max_log_size": "10MB",
+    "backup_count": 5,
+    "enable_statistics": true,
+    "log_security_events": true,
+    "log_performance_metrics": true
+  },
+
+  "monitoring": {
+    "health_check_interval": 60,
+    "enable_prometheus_metrics": false,
+    "alert_on_failures": true,
+    "performance_monitoring": true,
+    "memory_monitoring": true
+  },
+
+  "deployment": {
+    "environment": "production",
+    "max_memory_mb": 2048,
+    "max_cpu_percent": 80,
+    "auto_restart_on_failure": true,
+    "graceful_shutdown_timeout": 30,
+    "worker_processes": 1
+  }
+}

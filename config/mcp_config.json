@@ -81,5 +81,18 @@
     "log_file": "./logs/mcp_scraper.log",
     "max_log_size": "10MB",
     "backup_count": 5
+  },
+
+  "supabase": {
+    "url": "https://xewniavplpocctogfgnc.supabase.co",
+    "anon_key": "${SUPABASE_ANON_KEY}",
+    "service_role_key": "${SUPABASE_SERVICE_ROLE_KEY}",
+    "storage_bucket": "scraped-images",
+    "rft_integration": {
+      "enabled": true,
+      "auto_process_scraped_images": true,
+      "default_user_id": "mcp-scraper",
+      "generate_training_prompts": true
+    }
   }
 }

@@ -7,6 +7,7 @@ Educational/Research Purpose Only - Always respect website ToS and legal require
 import asyncio
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -15,6 +16,15 @@ from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
+
+# Import environment utilities
+try:
+    from utils.env_loader import get_secure_config, check_environment_health
+
+    ENV_UTILS_AVAILABLE = True
+except ImportError:
+    ENV_UTILS_AVAILABLE = False
+    logging.warning("Environment utilities not available")
 
 # Import Jina AI Research Integration
 try:
@@ -27,11 +37,52 @@ except ImportError:
         "Jina AI integration not available. Install aiohttp for full functionality."
     )
 
+# Import RFT Integration
+try:
+    from rft_integration import (
+        RFTSupabaseClient,
+        RFTTrainingManager,
+        integrate_with_mcp_scraper,
+    )
+
+    RFT_AVAILABLE = True
+except ImportError:
+    RFT_AVAILABLE = False
+    logging.warning(
+        "RFT integration not available. Install aiohttp for full functionality."
+    )
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("mcp-web-scraper")
+
+
+def load_config_with_env_vars(config_path: str) -> Dict:
+    """Load configuration and substitute environment variables"""
+    with open(config_path, "r") as f:
+        config_content = f.read()
+
+    # Replace environment variable placeholders
+    import re
+
+    def replace_env_var(match):
+        env_var = match.group(1)
+        return os.getenv(
+            env_var, match.group(0)
+        )  # Return original if env var not found
+
+    config_content = re.sub(r"\$\{([^}]+)\}", replace_env_var, config_content)
+
+    try:
+        return json.loads(config_content)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse configuration: {e}")
+        logger.info(
+            "Make sure to set required environment variables: SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY"
+        )
+        raise
 
 
 class WebScraperMCPServer:
@@ -52,7 +103,24 @@ class WebScraperMCPServer:
             "total_categorized": 0,
             "total_faces_detected": 0,
             "total_persons_identified": 0,
+            "rft_sessions": 0,
+            "rft_responses": 0,
         }
+
+        # Initialize RFT integration if available
+        self.rft_client = None
+        self.rft_manager = None
+        if RFT_AVAILABLE and config.get("supabase"):
+            try:
+                self.rft_client = RFTSupabaseClient(
+                    config["supabase"]["url"], config["supabase"].get("anon_key")
+                )
+                self.rft_manager = RFTTrainingManager(
+                    self.rft_client, config["supabase"]
+                )
+                logger.info("RFT integration initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize RFT integration: {e}")
 
         self.setup_directories()
         self.setup_tools()
@@ -245,12 +313,8 @@ class WebScraperMCPServer:
                                 "default": {},
                                 "description": "Filtering criteria for discovered URLs",
                             },
-                            "jina_api_key": {
-                                "type": "string",
-                                "description": "Jina AI API key for research",
-                            },
                         },
-                        "required": ["topic", "jina_api_key"],
+                        "required": ["topic"],
                     },
                 ),
                 types.Tool(
@@ -266,6 +330,77 @@ class WebScraperMCPServer:
                             }
                         },
                         "required": [],
+                    },
+                ),
+                types.Tool(
+                    name="rft_process_images",
+                    description="Process scraped images for RFT (Reinforcement Fine-tuning) training pipeline",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "image_paths": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Paths to images to process for RFT training",
+                            },
+                            "context": {
+                                "type": "object",
+                                "default": {},
+                                "description": "Context information about the images (source, category, etc.)",
+                            },
+                            "user_id": {
+                                "type": "string",
+                                "default": "mcp-scraper",
+                                "description": "User ID for tracking",
+                            },
+                        },
+                        "required": ["image_paths"],
+                    },
+                ),
+                types.Tool(
+                    name="rft_create_reward",
+                    description="Create reward feedback for RFT training responses",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "response_id": {
+                                "type": "string",
+                                "description": "ID of the response to reward",
+                            },
+                            "feedback": {
+                                "type": "object",
+                                "description": "Human feedback object with type, quality, comments",
+                            },
+                        },
+                        "required": ["response_id", "feedback"],
+                    },
+                ),
+                types.Tool(
+                    name="rft_get_statistics",
+                    description="Get comprehensive RFT training statistics and progress",
+                    inputSchema={"type": "object", "properties": {}, "required": []},
+                ),
+                types.Tool(
+                    name="rft_manage_checkpoints",
+                    description="Manage RFT model checkpoints (create, activate, list)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["create", "activate", "list", "get_active"],
+                                "description": "Action to perform on checkpoints",
+                            },
+                            "checkpoint_data": {
+                                "type": "object",
+                                "description": "Data for checkpoint creation (version, storage_key, etc.)",
+                            },
+                            "checkpoint_id": {
+                                "type": "string",
+                                "description": "ID of checkpoint to activate",
+                            },
+                        },
+                        "required": ["action"],
                     },
                 ),
             ]
@@ -289,6 +424,14 @@ class WebScraperMCPServer:
                 return await self.handle_intelligent_research(arguments or {})
             elif name == "proxy_status":
                 return await self.handle_proxy_status(arguments or {})
+            elif name == "rft_process_images":
+                return await self.handle_rft_process_images(arguments or {})
+            elif name == "rft_create_reward":
+                return await self.handle_rft_create_reward(arguments or {})
+            elif name == "rft_get_statistics":
+                return await self.handle_rft_get_statistics(arguments or {})
+            elif name == "rft_manage_checkpoints":
+                return await self.handle_rft_manage_checkpoints(arguments or {})
             else:
                 raise ValueError(f"Unknown tool: {name}")
 
@@ -409,6 +552,55 @@ class WebScraperMCPServer:
 
                 # Update statistics
                 self.stats["total_scraped"] += len(images)
+
+                # Integrate with RFT if available
+                if self.rft_manager and images:
+                    result_text += "\n🤖 RFT Integration:\n"
+                    try:
+                        # Prepare scraping result for RFT
+                        scraping_result = {
+                            "url": url,
+                            "images": [
+                                {"local_path": img.get("local_path")}
+                                for img in images
+                                if img.get("local_path")
+                            ],
+                            "category": category,
+                            "timestamp": time.time(),
+                            "user_id": "mcp-scraper",
+                            "avg_quality_score": scraping_result.get(
+                                "avg_quality_score", 0.7
+                            ),
+                        }
+
+                        # Integrate with RFT pipeline
+                        rft_result = await self.rft_manager.integrate_scraping_session(
+                            scraping_result
+                        )
+
+                        if rft_result.get("success"):
+                            summary = rft_result.get("summary", {})
+                            result_text += f"✅ RFT integration completed!\n"
+                            result_text += (
+                                f"📊 Session ID: {rft_result.get('session_id')}\n"
+                            )
+                            result_text += f"📥 Images processed: {summary.get('processed_images', 0)}\n"
+                            result_text += f"📝 Training responses: {summary.get('responses_created', 0)}\n"
+                            result_text += f"🚀 Ready for training: {'Yes' if summary.get('ready_for_training') else 'No'}\n"
+
+                            # Update RFT stats
+                            self.stats["rft_sessions"] += 1
+                            self.stats["rft_responses"] += summary.get(
+                                "responses_created", 0
+                            )
+                        else:
+                            result_text += (
+                                f"⚠️ RFT integration failed: {rft_result.get('error')}\n"
+                            )
+
+                    except Exception as e:
+                        result_text += f"⚠️ RFT integration error: {str(e)}\n"
+                        logger.warning(f"RFT integration failed: {e}")
 
             elif scraping_result["status"] == "blocked":
                 result_text += f"❌ Scraping blocked: {scraping_result['message']}\n"
@@ -661,7 +853,9 @@ class WebScraperMCPServer:
             max_keywords = arguments.get("max_keywords", 5)
             urls_per_keyword = arguments.get("urls_per_keyword", 5)
             filter_criteria = arguments.get("filter_criteria", {})
-            jina_api_key = arguments.get("jina_api_key", "")
+
+            # Get API key from environment variable
+            jina_api_key = os.getenv("JINA_API_KEY")
 
             if not topic:
                 return [
@@ -673,7 +867,8 @@ class WebScraperMCPServer:
             if not jina_api_key:
                 return [
                     types.TextContent(
-                        type="text", text="❌ Error: Jina API key is required"
+                        type="text",
+                        text="❌ Error: Jina API key not configured. Set JINA_API_KEY environment variable.",
                     )
                 ]
 
@@ -887,6 +1082,398 @@ class WebScraperMCPServer:
                 )
             ]
 
+    async def handle_rft_process_images(
+        self, arguments: Dict
+    ) -> List[types.TextContent]:
+        """Handle RFT image processing request"""
+        try:
+            if not RFT_AVAILABLE or not self.rft_manager:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: RFT integration not available.\n"
+                        + "Install required packages: pip install aiohttp",
+                    )
+                ]
+
+            image_paths = arguments.get("image_paths", [])
+            context = arguments.get("context", {})
+            user_id = arguments.get("user_id", "mcp-scraper")
+
+            if not image_paths:
+                return [
+                    types.TextContent(
+                        type="text", text="❌ Error: No image paths provided"
+                    )
+                ]
+
+            result_text = f"🤖 RFT Image Processing\n"
+            result_text += "=" * 40 + "\n\n"
+            result_text += f"📊 Processing {len(image_paths)} images\n"
+            result_text += f"👤 User ID: {user_id}\n"
+            result_text += f"📋 Context: {context}\n\n"
+
+            # Process images for RFT
+            processing_result = await self.rft_manager.processor.process_scraped_images(
+                image_paths, context
+            )
+
+            if processing_result:
+                result_text += f"✅ Processing completed!\n"
+                result_text += (
+                    f"📥 Processed: {len(processing_result['processed'])} images\n"
+                )
+                result_text += f"❌ Failed: {len(processing_result['failed'])} images\n"
+                result_text += f"🆔 Session ID: {processing_result['session_id']}\n\n"
+
+                # Create training data
+                if processing_result["processed"]:
+                    result_text += "🧠 Creating training data...\n"
+                    training_result = (
+                        await self.rft_manager.processor.create_rft_training_data(
+                            processing_result["processed"]
+                        )
+                    )
+
+                    result_text += f"📝 Responses created: {len(training_result['responses_created'])}\n"
+                    result_text += (
+                        f"❌ Training data failed: {len(training_result['failed'])}\n\n"
+                    )
+
+                    # Update stats
+                    self.stats["rft_sessions"] += 1
+                    self.stats["rft_responses"] += len(
+                        training_result["responses_created"]
+                    )
+
+                # Show sample results
+                if processing_result["processed"][:3]:
+                    result_text += "📋 Sample processed images:\n"
+                    for i, img in enumerate(processing_result["processed"][:3], 1):
+                        result_text += f"  {i}. {Path(img['image_path']).name}\n"
+                        result_text += f"     🔗 URL: {img['url']}\n"
+                        result_text += f"     🆔 ID: {img['image_id']}\n"
+
+                if processing_result["failed"]:
+                    result_text += f"\n⚠️ Failed images:\n"
+                    for fail in processing_result["failed"][:3]:
+                        result_text += (
+                            f"  • {Path(fail['image_path']).name}: {fail['error']}\n"
+                        )
+
+            else:
+                result_text += "❌ Processing failed\n"
+
+            return [types.TextContent(type="text", text=result_text)]
+
+        except Exception as e:
+            logger.error(f"Error in rft_process_images: {e}")
+            return [
+                types.TextContent(
+                    type="text", text=f"❌ Error processing images for RFT: {str(e)}"
+                )
+            ]
+
+    async def handle_rft_create_reward(
+        self, arguments: Dict
+    ) -> List[types.TextContent]:
+        """Handle RFT reward creation request"""
+        try:
+            if not RFT_AVAILABLE or not self.rft_manager:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: RFT integration not available.\n"
+                        + "Install required packages: pip install aiohttp",
+                    )
+                ]
+
+            response_id = arguments.get("response_id", "")
+            feedback = arguments.get("feedback", {})
+
+            if not response_id or not feedback:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: response_id and feedback are required",
+                    )
+                ]
+
+            result_text = f"🎯 Creating RFT Reward\n"
+            result_text += "=" * 30 + "\n\n"
+            result_text += f"📝 Response ID: {response_id}\n"
+            result_text += f"💭 Feedback Type: {feedback.get('type', 'unknown')}\n"
+            result_text += (
+                f"⭐ Quality Rating: {feedback.get('quality', 'not specified')}\n\n"
+            )
+
+            # Create reward
+            reward_result = await self.rft_manager.create_reward_feedback(
+                response_id, feedback
+            )
+
+            if reward_result.get("success"):
+                reward_data = reward_result.get("data", {})
+                result_text += f"✅ Reward created successfully!\n"
+                result_text += f"🆔 Reward ID: {reward_data.get('id')}\n"
+                result_text += f"📊 Score: {reward_data.get('score')}\n"
+                result_text += f"📝 Details: {reward_data.get('detail', 'None')}\n"
+            else:
+                result_text += (
+                    f"❌ Failed to create reward: {reward_result.get('error')}\n"
+                )
+
+            return [types.TextContent(type="text", text=result_text)]
+
+        except Exception as e:
+            logger.error(f"Error in rft_create_reward: {e}")
+            return [
+                types.TextContent(
+                    type="text", text=f"❌ Error creating RFT reward: {str(e)}"
+                )
+            ]
+
+    async def handle_rft_get_statistics(
+        self, arguments: Dict
+    ) -> List[types.TextContent]:
+        """Handle RFT statistics request"""
+        try:
+            if not RFT_AVAILABLE or not self.rft_manager:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: RFT integration not available.\n"
+                        + "Install required packages: pip install aiohttp",
+                    )
+                ]
+
+            result_text = f"📊 RFT Training Statistics\n"
+            result_text += "=" * 40 + "\n\n"
+
+            # Get comprehensive statistics
+            stats = await self.rft_manager.get_training_statistics()
+
+            # Display response statistics
+            responses = stats.get("responses", {})
+            result_text += f"📝 Responses:\n"
+            result_text += f"  • Total: {responses.get('total', 0)}\n"
+            result_text += f"  • Recent 24h: {responses.get('recent_24h', 0)}\n"
+
+            by_model = responses.get("by_model", {})
+            if by_model:
+                result_text += f"  • By Model:\n"
+                for model, count in by_model.items():
+                    result_text += f"    - {model}: {count}\n"
+
+            # Display reward statistics
+            rewards = stats.get("rewards", {})
+            result_text += f"\n🎯 Rewards:\n"
+            result_text += f"  • Total: {rewards.get('total', 0)}\n"
+            result_text += f"  • Average Score: {rewards.get('avg_score', 0):.3f}\n"
+
+            distribution = rewards.get("distribution", {})
+            if distribution:
+                result_text += f"  • Distribution:\n"
+                result_text += f"    - Positive: {distribution.get('positive', 0)}\n"
+                result_text += f"    - Negative: {distribution.get('negative', 0)}\n"
+                result_text += f"    - Neutral: {distribution.get('neutral', 0)}\n"
+
+            # Display checkpoint statistics
+            checkpoints = stats.get("checkpoints", {})
+            result_text += f"\n💾 Checkpoints:\n"
+            result_text += f"  • Total: {checkpoints.get('total', 0)}\n"
+            result_text += f"  • Active: {checkpoints.get('active', 'None')}\n"
+            result_text += (
+                f"  • Best Performance: {checkpoints.get('best_performance', 0):.3f}\n"
+            )
+
+            versions = checkpoints.get("versions", [])
+            if versions:
+                result_text += f"  • Versions: {', '.join(versions)}\n"
+
+            # Display training readiness
+            readiness = stats.get("training_readiness", {})
+            result_text += f"\n🚀 Training Readiness:\n"
+            status = readiness.get("status", "unknown")
+            status_emoji = {
+                "ready": "✅",
+                "partial": "⚠️",
+                "insufficient_data": "❌",
+            }.get(status, "❓")
+            result_text += f"  • Status: {status_emoji} {status.title()}\n"
+
+            recommendations = readiness.get("recommendations", [])
+            if recommendations:
+                result_text += f"  • Recommendations:\n"
+                for rec in recommendations:
+                    result_text += f"    - {rec}\n"
+
+            # Display session statistics
+            result_text += f"\n📈 Session Stats:\n"
+            result_text += f"  • RFT Sessions: {self.stats.get('rft_sessions', 0)}\n"
+            result_text += f"  • RFT Responses: {self.stats.get('rft_responses', 0)}\n"
+
+            return [types.TextContent(type="text", text=result_text)]
+
+        except Exception as e:
+            logger.error(f"Error in rft_get_statistics: {e}")
+            return [
+                types.TextContent(
+                    type="text", text=f"❌ Error getting RFT statistics: {str(e)}"
+                )
+            ]
+
+    async def handle_rft_manage_checkpoints(
+        self, arguments: Dict
+    ) -> List[types.TextContent]:
+        """Handle RFT checkpoint management request"""
+        try:
+            if not RFT_AVAILABLE or not self.rft_client:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: RFT integration not available.\n"
+                        + "Install required packages: pip install aiohttp",
+                    )
+                ]
+
+            action = arguments.get("action", "")
+            checkpoint_data = arguments.get("checkpoint_data", {})
+            checkpoint_id = arguments.get("checkpoint_id", "")
+
+            result_text = f"💾 RFT Checkpoint Management\n"
+            result_text += "=" * 35 + "\n\n"
+            result_text += f"🔧 Action: {action}\n\n"
+
+            if action == "create":
+                if not checkpoint_data.get("version") or not checkpoint_data.get(
+                    "storage_key"
+                ):
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text="❌ Error: version and storage_key required for checkpoint creation",
+                        )
+                    ]
+
+                result = await self.rft_client.create_checkpoint(**checkpoint_data)
+
+                if result.get("success"):
+                    data = result.get("data", {})
+                    result_text += f"✅ Checkpoint created successfully!\n"
+                    result_text += f"🆔 ID: {data.get('id')}\n"
+                    result_text += f"📌 Version: {data.get('version')}\n"
+                    result_text += f"🔑 Storage Key: {data.get('storage_key')}\n"
+                    result_text += f"📊 Epoch: {data.get('epoch', 0)}\n"
+                    result_text += f"⭐ Avg Reward: {data.get('avg_reward', 0):.3f}\n"
+                    result_text += (
+                        f"🟢 Active: {'Yes' if data.get('is_active') else 'No'}\n"
+                    )
+                else:
+                    result_text += (
+                        f"❌ Failed to create checkpoint: {result.get('error')}\n"
+                    )
+
+            elif action == "activate":
+                if not checkpoint_id:
+                    return [
+                        types.TextContent(
+                            type="text",
+                            text="❌ Error: checkpoint_id required for activation",
+                        )
+                    ]
+
+                result = await self.rft_client.activate_checkpoint(checkpoint_id)
+
+                if result.get("success"):
+                    result_text += f"✅ Checkpoint activated successfully!\n"
+                    result_text += f"🆔 Activated ID: {checkpoint_id}\n"
+                    result_text += f"ℹ️ All other checkpoints have been deactivated\n"
+                else:
+                    result_text += (
+                        f"❌ Failed to activate checkpoint: {result.get('error')}\n"
+                    )
+
+            elif action == "list":
+                result = await self.rft_client.get_checkpoints(limit=20)
+
+                if result.get("success"):
+                    checkpoints = result.get("data", [])
+                    stats = result.get("stats", {})
+
+                    result_text += f"📋 Checkpoint List ({len(checkpoints)} total):\n\n"
+
+                    if not checkpoints:
+                        result_text += "📭 No checkpoints found\n"
+                    else:
+                        for i, checkpoint in enumerate(checkpoints, 1):
+                            status = (
+                                "🟢 Active"
+                                if checkpoint.get("is_active")
+                                else "⚪ Inactive"
+                            )
+                            result_text += (
+                                f"{i}. 📌 {checkpoint.get('version')} - {status}\n"
+                            )
+                            result_text += f"   🆔 ID: {checkpoint.get('id')}\n"
+                            result_text += (
+                                f"   🔑 Storage: {checkpoint.get('storage_key')}\n"
+                            )
+                            result_text += (
+                                f"   📊 Epoch: {checkpoint.get('epoch', 0)}\n"
+                            )
+                            result_text += (
+                                f"   ⭐ Reward: {checkpoint.get('avg_reward', 0):.3f}\n"
+                            )
+                            result_text += f"   📅 Created: {checkpoint.get('created_at', 'Unknown')[:19]}\n\n"
+
+                    # Show statistics
+                    result_text += f"📊 Statistics:\n"
+                    result_text += f"  • Total: {stats.get('total_checkpoints', 0)}\n"
+                    result_text += f"  • Active: {stats.get('active_checkpoints', 0)}\n"
+                    result_text += f"  • Latest Epoch: {stats.get('latest_epoch', 0)}\n"
+                    result_text += (
+                        f"  • Best Reward: {stats.get('best_avg_reward', 0):.3f}\n"
+                    )
+
+                else:
+                    result_text += (
+                        f"❌ Failed to list checkpoints: {result.get('error')}\n"
+                    )
+
+            elif action == "get_active":
+                result = await self.rft_client.get_active_checkpoint()
+
+                if result.get("success"):
+                    data = result.get("data", {})
+                    result_text += f"🟢 Active Checkpoint:\n"
+                    result_text += f"🆔 ID: {data.get('id')}\n"
+                    result_text += f"📌 Version: {data.get('version')}\n"
+                    result_text += f"🔑 Storage Key: {data.get('storage_key')}\n"
+                    result_text += f"📊 Epoch: {data.get('epoch', 0)}\n"
+                    result_text += f"⭐ Avg Reward: {data.get('avg_reward', 0):.3f}\n"
+                    result_text += (
+                        f"📅 Created: {data.get('created_at', 'Unknown')[:19]}\n"
+                    )
+                else:
+                    result_text += f"❌ No active checkpoint found\n"
+
+            else:
+                result_text += f"❌ Unknown action: {action}\n"
+                result_text += (
+                    f"💡 Available actions: create, activate, list, get_active\n"
+                )
+
+            return [types.TextContent(type="text", text=result_text)]
+
+        except Exception as e:
+            logger.error(f"Error in rft_manage_checkpoints: {e}")
+            return [
+                types.TextContent(
+                    type="text", text=f"❌ Error managing RFT checkpoints: {str(e)}"
+                )
+            ]
+
     async def check_website_compliance(self, url: str) -> Dict[str, Any]:
         """Check website legal compliance"""
         try:
@@ -970,11 +1557,14 @@ async def main():
     config_path = Path(__file__).parent / "config" / "mcp_config.json"
     proxy_config_path = Path(__file__).parent / "config" / "proxy_config.json"
 
+    # Load main configuration with environment variable substitution
     try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Configuration file not found: {config_path}")
+        config = load_config_with_env_vars(str(config_path))
+        logger.info(f"Loaded configuration from: {config_path}")
+    except Exception as e:
+        logger.error(f"Failed to load configuration from {config_path}: {e}")
+        logger.info("Using minimal default configuration")
+
         # Use minimal default config
         config = {
             "storage": {

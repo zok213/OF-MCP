@@ -2,7 +2,7 @@
 # Essential dependencies only for production deployment
 
 # Core MCP Server
-mcp>=0.5.0
+mcp>=1.1.0
 
 # Web Scraping & Proxy Management
 requests>=2.31.0
@@ -17,6 +17,9 @@ numpy>=1.24.0
 
 # AI Research Integration (Jina AI)
 requests>=2.31.0
+aiohttp>=3.9.0
+
+# RFT Integration (Supabase)
 aiohttp>=3.9.0
 
 # Data Processing

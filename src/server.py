@@ -17,30 +17,30 @@ import mcp.server.stdio
 import mcp.types as types
 
 # Import core modules for production hardening
-from core.security import (
+from .core.security import (
     initialize_security, get_secure_credential, store_secure_credential,
     validate_api_key_format, SecureConfigValidator, APIRateLimiter
 )
-from core.error_handling import (
+from .core.error_handling import (
     ResilienceManager, AsyncRetry, create_retry_config,
     handle_errors, error_boundary, health_checker
 )
-from core.browser_persistence import (
+from .core.browser_persistence import (
     AutonomousScraper, AutonomousConfig, get_session_storage_path
 )
 
 # Import cloud storage and database modules (NEW)
 try:
-    from core.cloud_storage import CloudStorageManager
-    from core.database import DatabaseManager
+    from .core.cloud_storage import CloudStorageManager
+    from .core.database import DatabaseManager
     CLOUD_AVAILABLE = True
 except ImportError:
     CLOUD_AVAILABLE = False
-    logger.warning("Cloud storage and database modules not available. Install cloud dependencies.")
+    logging.warning("Cloud storage and database modules not available. Install cloud dependencies.")
 
 # Import Jina AI Research Integration
 try:
-    from research.jina_researcher import JinaResearcher, MCP_JinaIntegration
+    from .research.jina_researcher import JinaResearcher, MCP_JinaIntegration
     JINA_AVAILABLE = True
 except ImportError:
     JINA_AVAILABLE = False
@@ -69,11 +69,11 @@ try:
     )
 except ImportError:
     # Fallback to standard logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("mcp-web-scraper")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger("mcp-web-scraper")
 
 class WebScraperMCPServer:
     """Production-hardened MCP Server for web scraping and image categorization"""
@@ -176,6 +176,9 @@ class WebScraperMCPServer:
         return success
 
     def register_health_checks(self):
+        """Register health check endpoints"""
+        # TODO: Implement health check registration
+        pass
 
     def initialize_security_system(self):
         """Initialize the security system with credential management"""

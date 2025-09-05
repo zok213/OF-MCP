@@ -258,24 +258,37 @@ k8s/secrets/
 # =============================================================================
 # DEVELOPMENT & NON-PRODUCTION FILES
 # =============================================================================
-# Development folder (tests, setup scripts, extra docs)
-development/
+# Development folder (tests, setup scripts, extra docs) - REMOVED
+# development/
+
+# Tools and scripts (development utilities)
+tools/proxy_config.json
+tools/enhanced_config.json
 
 # =============================================================================
 # EXAMPLES & SAMPLES (Keep structure, exclude data)
 # =============================================================================
-examples/sample_data/
-examples/test_images/
-examples/*.jpg
-examples/*.png
+examples/advanced/sample_data/
+examples/advanced/test_images/
+examples/advanced/*.jpg
+examples/advanced/*.png
+
+# =============================================================================
+# SCRIPTS & UTILITIES
+# =============================================================================
+# Scripts that may contain sensitive data
+scripts/*_secrets.py
+scripts/*_credentials.py
+scripts/*_config.py
 
 # =============================================================================
 # KEEP THESE IMPORTANT FILES (Explicitly not ignored)
 # =============================================================================
 # Configuration templates and examples
 !.env.example
-!config/mcp_config.example.json
-!examples/production_ai_pipeline.py
+!config/examples/mcp_config.example.json
+!examples/advanced/production_ai_pipeline.py
+!examples/advanced/professional_scraping_pipeline.py
 !docs/
 
 # Important documentation

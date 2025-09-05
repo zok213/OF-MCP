@@ -46,6 +46,18 @@ except ImportError:
     JINA_AVAILABLE = False
     logging.warning("Jina AI integration not available. Install aiohttp for full functionality.")
 
+# Import RFT Integration
+try:
+    from rft_integration import (
+        RFTSupabaseClient,
+        RFTTrainingManager,
+        integrate_with_mcp_scraper,
+    )
+    RFT_AVAILABLE = True
+except ImportError:
+    RFT_AVAILABLE = False
+    logging.warning("RFT integration not available. Install aiohttp for full functionality.")
+
 # Enhanced logging with structured logging
 try:
     import structlog
@@ -115,6 +127,15 @@ class WebScraperMCPServer:
             self.cloud_storage = None
             self.database = None
 
+        # Initialize RFT integration
+        if RFT_AVAILABLE:
+            rft_config = config.get('supabase', {})
+            self.rft_client = RFTSupabaseClient(rft_config)
+            self.rft_training_manager = RFTTrainingManager(self.rft_client)
+        else:
+            self.rft_client = None
+            self.rft_training_manager = None
+
         # Initialize scrapers with enhanced error handling
         self.scrapers = {
             'generic': self.create_generic_scraper(),
@@ -130,7 +151,9 @@ class WebScraperMCPServer:
             "uptime_seconds": 0,
             "last_health_check": time.time(),
             "circuit_breaker_trips": 0,
-            "autonomous_sessions_active": 0
+            "autonomous_sessions_active": 0,
+            "rft_sessions": 0,
+            "rft_responses": 0
         }
         
         self.setup_directories()

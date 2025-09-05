@@ -31,6 +31,9 @@ psycopg2-binary>=2.9.0  # PostgreSQL driver for Supabase
 pandas>=2.1.0
 python-dotenv>=1.0.0
 
+# RFT Integration (Supabase)
+aiohttp>=3.9.0
+
 # Utilities
 tqdm>=4.66.0
 structlog>=23.1.0  # Structured logging

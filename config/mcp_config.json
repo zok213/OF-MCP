@@ -110,5 +110,18 @@
     "auto_record_sessions": true,
     "backup_interval_hours": 24,
     "enable_health_monitoring": true
+  },
+
+  "supabase": {
+    "url": "https://xewniavplpocctogfgnc.supabase.co",
+    "anon_key": "${SUPABASE_ANON_KEY}",
+    "service_role_key": "${SUPABASE_SERVICE_ROLE_KEY}",
+    "storage_bucket": "scraped-images",
+    "rft_integration": {
+      "enabled": true,
+      "auto_process_scraped_images": true,
+      "default_user_id": "mcp-scraper",
+      "generate_training_prompts": true
+    }
   }
 }

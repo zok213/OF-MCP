@@ -1,0 +1,26 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.56.0",
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.6.7"
+  },
+  "scripts": {
+    "deploy-functions": "chmod +x scripts/deploy-edge-functions.sh && ./scripts/deploy-edge-functions.sh",
+    "test-rft": "python examples/rft_workflow_demo.py",
+    "setup-db": "supabase db reset && supabase migration up"
+  },
+  "description": "AI-Driven MCP Web Scraper with RFT Integration",
+  "keywords": [
+    "mcp",
+    "web-scraping",
+    "ai",
+    "rft",
+    "reinforcement-learning",
+    "supabase"
+  ],
+  "author": "OF-MCP Team",
+  "license": "MIT",
+  "devDependencies": {
+    "supabase": "^2.39.2"
+  }
+}

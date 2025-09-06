@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Complete RFT Integration Example
-Demonstrates the full workflow from scraping to RFT training
+Complete RFT Integration Example for Adult Content
+Demonstrates the full workflow from adult content scraping to RFT training
 """
 
 import asyncio
@@ -28,10 +28,10 @@ logger = logging.getLogger("rft-example")
 
 
 async def demonstrate_rft_workflow():
-    """Demonstrate complete RFT integration workflow"""
+    """Demonstrate complete RFT integration workflow for adult content"""
 
-    print("🚀 RFT Integration Workflow Demonstration")
-    print("=" * 50)
+    print("🚀 Adult Content RFT Integration Workflow Demonstration")
+    print("=" * 55)
 
     # Configuration
     supabase_config = {
@@ -49,31 +49,33 @@ async def demonstrate_rft_workflow():
 
         print("✅ RFT client initialized successfully")
 
-        # Simulate scraping results (in real scenario, this comes from MCP scraper)
-        print("\n🕷️ 2. Simulating scraping results...")
+        # Simulate adult content scraping results (in real scenario, this comes from MCP scraper)
+        print("\n🕷️ 2. Simulating adult content scraping results...")
 
-        # Create some sample image files (for demo purposes)
+        # Create some sample adult content files (for demo purposes)
         sample_images_dir = Path("./sample_images")
         sample_images_dir.mkdir(exist_ok=True)
 
         sample_images = []
         for i in range(3):
-            img_path = sample_images_dir / f"sample_image_{i+1}.jpg"
+            img_path = sample_images_dir / f"sample_adult_image_{i+1}.jpg"
             if not img_path.exists():
                 # Create a dummy file for demo
-                img_path.write_bytes(b"fake_image_data_for_demo")
+                img_path.write_bytes(b"fake_adult_image_data_for_demo")
             sample_images.append(str(img_path))
 
         scraper_result = {
-            "url": "https://example.com/gallery",
+            "url": "https://example-adult-site.com/gallery",
             "images": [{"local_path": path} for path in sample_images],
-            "category": "fashion",
+            "category": "hentai_gallery",
             "timestamp": "2024-09-04T10:00:00Z",
             "user_id": "demo-user",
             "avg_quality_score": 0.85,
+            "content_type": "nsfw",
+            "adult_rating": "18+",
         }
 
-        print(f"📊 Simulated scraping of {len(sample_images)} images")
+        print(f"📊 Simulated adult content scraping of {len(sample_images)} images")
 
         # Integrate with RFT pipeline
         print("\n🤖 3. Integrating with RFT pipeline...")
@@ -112,13 +114,17 @@ async def demonstrate_rft_workflow():
             for i, response in enumerate(recent_responses[:2]):
                 response_id = response["id"]
 
-                # Simulate different types of feedback
+                # Simulate different types of adult content feedback
                 feedback_examples = [
-                    {"type": "like", "quality": 4, "comments": "Good description"},
+                    {
+                        "type": "like",
+                        "quality": 4,
+                        "comments": "Good adult content categorization",
+                    },
                     {
                         "type": "dislike",
                         "quality": 2,
-                        "comments": "Could be more detailed",
+                        "comments": "NSFW content not properly tagged",
                     },
                 ]
 
@@ -141,13 +147,14 @@ async def demonstrate_rft_workflow():
         # Demonstrate checkpoint management
         print("\n💾 5. Demonstrating checkpoint management...")
 
-        # Create a sample checkpoint
+        # Create a sample adult content model checkpoint
         checkpoint_data = {
-            "version": "v1.0.0-demo",
-            "storage_key": "models/demo-checkpoint-v1.0.0.safetensors",
+            "version": "v1.0.0-adult-content-demo",
+            "storage_key": "models/adult-content-demo-checkpoint-v1.0.0.safetensors",
             "epoch": 10,
             "avg_reward": 0.75,
             "is_active": True,
+            "model_type": "adult_content_classifier",
         }
 
         checkpoint_result = await client.create_checkpoint(**checkpoint_data)
@@ -205,13 +212,16 @@ async def demonstrate_rft_workflow():
         else:
             print(f"\n❌ No active checkpoint found")
 
-        print("\n🎉 RFT Integration Workflow Completed Successfully!")
+        print("\n🎉 Adult Content RFT Integration Workflow Completed Successfully!")
         print("\n💡 Next Steps:")
         print("  1. Set up actual Supabase credentials")
         print("  2. Deploy edge functions using deploy-edge-functions.sh")
         print("  3. Run database migration: 20240904000001_rft_integration_setup.sql")
-        print("  4. Configure MCP server with Supabase settings")
-        print("  5. Start scraping and training!")
+        print("  4. Configure MCP server with Supabase settings for adult content")
+        print("  5. Start adult content scraping and training!")
+        print(
+            "  6. Ensure compliance with adult content regulations and age verification"
+        )
 
     except Exception as e:
         logger.error(f"RFT workflow demonstration failed: {e}")

@@ -318,6 +318,55 @@ class WebScraperMCPServer:
                     },
                 ),
                 types.Tool(
+                    name="crawl_researcher_links",
+                    description="Advanced crawling tool that processes links provided by researchers with intelligent prioritization and batch processing",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "researcher_urls": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "url": {"type": "string"},
+                                        "priority": {"type": "integer"},
+                                        "category": {"type": "string"},
+                                        "metadata": {"type": "object"},
+                                    },
+                                    "required": ["url"],
+                                },
+                                "description": "Array of URLs provided by researchers with optional metadata",
+                            },
+                            "batch_size": {
+                                "type": "integer",
+                                "default": 5,
+                                "description": "Number of URLs to process simultaneously",
+                            },
+                            "max_images_per_url": {
+                                "type": "integer",
+                                "default": 50,
+                                "description": "Maximum images to extract per URL",
+                            },
+                            "min_priority": {
+                                "type": "integer",
+                                "default": 50,
+                                "description": "Minimum priority score to process URLs (0-100)",
+                            },
+                            "enable_rft": {
+                                "type": "boolean",
+                                "default": True,
+                                "description": "Enable automatic RFT training data generation",
+                            },
+                            "filter_options": {
+                                "type": "object",
+                                "default": {},
+                                "description": "Advanced filtering options for image quality and content",
+                            },
+                        },
+                        "required": ["researcher_urls"],
+                    },
+                ),
+                types.Tool(
                     name="proxy_status",
                     description="Check proxy health and rotation statistics",
                     inputSchema={
@@ -422,6 +471,8 @@ class WebScraperMCPServer:
                 return await self.handle_list_categories(arguments or {})
             elif name == "intelligent_research":
                 return await self.handle_intelligent_research(arguments or {})
+            elif name == "crawl_researcher_links":
+                return await self.handle_crawl_researcher_links(arguments or {})
             elif name == "proxy_status":
                 return await self.handle_proxy_status(arguments or {})
             elif name == "rft_process_images":
@@ -988,6 +1039,276 @@ class WebScraperMCPServer:
                     + f"🔧 Make sure Jina AI integration is properly configured",
                 )
             ]
+
+    async def handle_crawl_researcher_links(
+        self, arguments: Dict
+    ) -> List[types.TextContent]:
+        """Handle crawling of researcher-provided links with advanced batch processing"""
+        try:
+            researcher_urls = arguments.get("researcher_urls", [])
+            batch_size = arguments.get("batch_size", 5)
+            max_images_per_url = arguments.get("max_images_per_url", 50)
+            min_priority = arguments.get("min_priority", 50)
+            enable_rft = arguments.get("enable_rft", True)
+            filter_options = arguments.get("filter_options", {})
+
+            if not researcher_urls:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="❌ Error: No researcher URLs provided.\n"
+                        + "Expected format: [{'url': 'https://example.com', 'priority': 85, 'category': 'fashion'}]",
+                    )
+                ]
+
+            result_text = f"🕷️ Advanced Researcher Link Crawler\n"
+            result_text += "=" * 50 + "\n\n"
+            result_text += f"📋 Total URLs provided: {len(researcher_urls)}\n"
+            result_text += f"🔄 Batch size: {batch_size}\n"
+            result_text += f"📊 Max images per URL: {max_images_per_url}\n"
+            result_text += f"⭐ Min priority threshold: {min_priority}\n"
+            result_text += (
+                f"🤖 RFT integration: {'Enabled' if enable_rft else 'Disabled'}\n\n"
+            )
+
+            # Filter URLs by priority
+            valid_urls = []
+            filtered_out = 0
+
+            for url_data in researcher_urls:
+                if isinstance(url_data, str):
+                    # Convert string URL to object
+                    url_data = {"url": url_data, "priority": 75, "category": "general"}
+
+                url = url_data.get("url", "")
+                priority = url_data.get("priority", 75)
+
+                if not url:
+                    continue
+
+                if priority >= min_priority:
+                    valid_urls.append(url_data)
+                else:
+                    filtered_out += 1
+
+            result_text += f"✅ URLs meeting criteria: {len(valid_urls)}\n"
+            if filtered_out > 0:
+                result_text += f"⏭️ URLs filtered out (low priority): {filtered_out}\n"
+            result_text += "\n"
+
+            if not valid_urls:
+                result_text += "❌ No URLs meet the minimum priority threshold.\n"
+                result_text += f"💡 Try lowering min_priority below {min_priority} or check your URL priorities.\n"
+                return [types.TextContent(type="text", text=result_text)]
+
+            # Sort URLs by priority (highest first)
+            valid_urls.sort(key=lambda x: x.get("priority", 0), reverse=True)
+
+            # Process URLs in batches
+            total_images_scraped = 0
+            total_urls_processed = 0
+            total_errors = 0
+            batch_results = []
+            rft_sessions = []
+
+            result_text += f"🚀 Starting batch processing...\n\n"
+
+            # Process in batches for better performance and rate limiting
+            for batch_start in range(0, len(valid_urls), batch_size):
+                batch_urls = valid_urls[batch_start : batch_start + batch_size]
+                batch_num = (batch_start // batch_size) + 1
+
+                result_text += (
+                    f"📦 Batch {batch_num}: Processing {len(batch_urls)} URLs\n"
+                )
+
+                batch_images = 0
+                batch_errors = 0
+
+                for url_data in batch_urls:
+                    url = url_data["url"]
+                    category = url_data.get("category", "researcher_provided")
+                    priority = url_data.get("priority", 75)
+                    metadata = url_data.get("metadata", {})
+
+                    try:
+                        result_text += (
+                            f"  🔍 Processing: {url} (Priority: {priority})\n"
+                        )
+
+                        # Choose appropriate scraper
+                        scraper = self.choose_scraper_for_url(url)
+
+                        if not scraper:
+                            result_text += f"    ❌ No suitable scraper available\n"
+                            batch_errors += 1
+                            continue
+
+                        # Legal compliance check
+                        compliance = await self.check_website_compliance(url)
+                        if not compliance["robots_ok"]:
+                            result_text += f"    ⚖️ Blocked by robots.txt\n"
+                            batch_errors += 1
+                            continue
+
+                        # Perform scraping with enhanced options
+                        scraping_result = await scraper.scrape_url(
+                            url, max_images_per_url, enhanced_filters=filter_options
+                        )
+
+                        if scraping_result["status"] == "success":
+                            images = scraping_result["images"]
+                            batch_images += len(images)
+                            total_images_scraped += len(images)
+
+                            result_text += f"    ✅ Found {len(images)} images\n"
+
+                            # Store batch result
+                            batch_result = {
+                                "url": url,
+                                "priority": priority,
+                                "category": category,
+                                "images_found": len(images),
+                                "metadata": metadata,
+                                "scraping_result": scraping_result,
+                            }
+                            batch_results.append(batch_result)
+
+                            # RFT Integration if enabled
+                            if enable_rft and self.rft_manager and images:
+                                try:
+                                    # Prepare enhanced scraping result for RFT
+                                    enhanced_scraping_result = {
+                                        "url": url,
+                                        "images": [
+                                            {"local_path": img.get("local_path")}
+                                            for img in images
+                                            if img.get("local_path")
+                                        ],
+                                        "category": category,
+                                        "timestamp": time.time(),
+                                        "user_id": "researcher-crawler",
+                                        "priority": priority,
+                                        "researcher_metadata": metadata,
+                                        "avg_quality_score": scraping_result.get(
+                                            "avg_quality_score", 0.7
+                                        ),
+                                    }
+
+                                    # Integrate with RFT pipeline
+                                    rft_result = await self.rft_manager.integrate_scraping_session(
+                                        enhanced_scraping_result
+                                    )
+
+                                    if rft_result.get("success"):
+                                        rft_sessions.append(rft_result)
+                                        result_text += f"    🤖 RFT: Session {rft_result.get('session_id', 'unknown')}\n"
+
+                                except Exception as rft_error:
+                                    result_text += f"    ⚠️ RFT integration warning: {str(rft_error)}\n"
+
+                        else:
+                            result_text += f"    ❌ Scraping failed: {scraping_result.get('message', 'Unknown error')}\n"
+                            batch_errors += 1
+
+                        total_urls_processed += 1
+
+                        # Small delay between URLs to be respectful
+                        await asyncio.sleep(1)
+
+                    except Exception as e:
+                        result_text += f"    ❌ Error processing {url}: {str(e)}\n"
+                        batch_errors += 1
+                        total_errors += 1
+
+                total_errors += batch_errors
+                result_text += f"  📊 Batch {batch_num} complete: {batch_images} images, {batch_errors} errors\n\n"
+
+                # Delay between batches for rate limiting
+                if batch_start + batch_size < len(valid_urls):
+                    await asyncio.sleep(2)
+
+            # Final summary
+            result_text += "🎉 Crawling Complete - Final Summary\n"
+            result_text += "=" * 40 + "\n"
+            result_text += (
+                f"📈 URLs processed: {total_urls_processed}/{len(valid_urls)}\n"
+            )
+            result_text += f"🖼️ Total images scraped: {total_images_scraped}\n"
+            result_text += f"❌ Total errors: {total_errors}\n"
+            result_text += f"📊 Success rate: {((total_urls_processed - total_errors) / max(total_urls_processed, 1)) * 100:.1f}%\n"
+
+            # RFT Summary
+            if enable_rft and rft_sessions:
+                result_text += f"\n🤖 RFT Integration Summary:\n"
+                result_text += f"📝 RFT sessions created: {len(rft_sessions)}\n"
+                total_rft_responses = sum(
+                    session.get("summary", {}).get("responses_created", 0)
+                    for session in rft_sessions
+                )
+                result_text += (
+                    f"💾 Training responses generated: {total_rft_responses}\n"
+                )
+
+            # Category breakdown
+            if batch_results:
+                categories = {}
+                for result in batch_results:
+                    category = result["category"]
+                    categories[category] = (
+                        categories.get(category, 0) + result["images_found"]
+                    )
+
+                if categories:
+                    result_text += f"\n📊 Images by Category:\n"
+                    for category, count in sorted(
+                        categories.items(), key=lambda x: x[1], reverse=True
+                    ):
+                        result_text += f"  • {category}: {count} images\n"
+
+            # Top performing URLs
+            if batch_results:
+                top_performers = sorted(
+                    batch_results, key=lambda x: x["images_found"], reverse=True
+                )[:3]
+                result_text += f"\n🏆 Top Performing URLs:\n"
+                for i, performer in enumerate(top_performers, 1):
+                    result_text += f"  {i}. {performer['url'][:50]}{'...' if len(performer['url']) > 50 else ''}\n"
+                    result_text += f"     🖼️ Images: {performer['images_found']}, ⭐ Priority: {performer['priority']}\n"
+
+            # Update server statistics
+            self.stats["total_scraped"] += total_images_scraped
+
+            return [types.TextContent(type="text", text=result_text)]
+
+        except Exception as e:
+            logger.error(f"Error in crawl_researcher_links: {e}")
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"❌ Error in researcher link crawling: {str(e)}\n"
+                    + f"🔧 Check your URL format and proxy configuration",
+                )
+            ]
+
+    def choose_scraper_for_url(self, url: str):
+        """Choose the most appropriate scraper for a given URL"""
+        url_lower = url.lower()
+
+        # Check for specialized scrapers
+        if "pornpics.com" in url_lower:
+            scraper = self.scrapers.get("pornpics")
+            if scraper:
+                return scraper
+
+        # Add more specialized scrapers here as needed
+        # elif "instagram.com" in url_lower:
+        #     return self.scrapers.get("instagram")
+        # elif "pinterest.com" in url_lower:
+        #     return self.scrapers.get("pinterest")
+
+        # Default to generic scraper
+        return self.scrapers.get("generic")
 
     async def handle_proxy_status(self, arguments: Dict) -> List[types.TextContent]:
         """Handle proxy status check request"""

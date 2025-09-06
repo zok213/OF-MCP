@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "of-web-scraper": {
+      "command": "C:/Python313/python.exe",
+      "args": ["src/server.py"],
+      "cwd": "e:\\Projects\\Works\\OF\\OF-MCP"
+    }
+  }
+}
